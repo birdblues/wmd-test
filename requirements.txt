@@ -1,0 +1,117 @@
+# requirements.txt
+aiohttp>=3.9.0
+beautifulsoup4>=4.12.0
+lxml>=4.9.0
+
+# config_example.json
+{
+    "download_images": true,
+    "image_folder": "./downloaded_images",
+    "max_image_size": 10485760,
+    "include_links": true,
+    "preserve_whitespace": false,
+    "code_block_style": "```",
+    "heading_style": "atx",
+    "timeout": 30,
+    "max_retries": 3,
+    "line_width": 80,
+    "preserve_empty_lines": false
+}
+
+# 사용 예제
+
+# 1. 기본 사용법 (Python 스크립트)
+import asyncio
+from web_to_markdown import WebToMarkdownConverter, ConverterConfig
+
+async def convert_example():
+    # 기본 설정으로 변환
+    converter = WebToMarkdownConverter()
+    markdown = await converter.convert_url("https://example.com")
+    print(markdown)
+    
+    # 커스텀 설정으로 변환
+    config = ConverterConfig(
+        download_images=True,
+        line_width=100,
+        code_block_style="~~~"
+    )
+    converter = WebToMarkdownConverter(config)
+    
+    # URL 변환
+    markdown = await converter.convert_url("https://example.com")
+    await converter.save_to_file(markdown, "output.md")
+    
+    # HTML 파일 변환
+    markdown = await converter.convert_file("local_page.html")
+    print(markdown)
+
+# 실행
+asyncio.run(convert_example())
+
+# 2. 명령줄 사용법
+# URL 변환
+python web_to_markdown.py https://example.com -o output.md
+
+# HTML 파일 변환
+python web_to_markdown.py page.html -o output.md
+
+# 설정 파일 사용
+python web_to_markdown.py https://example.com -c config.json -o output.md
+
+# 이미지 다운로드 비활성화
+python web_to_markdown.py https://example.com --no-images -o output.md
+
+# 텍스트 너비 설정
+python web_to_markdown.py https://example.com --width 120 -o output.md
+
+# 3. 프로그래밍 방식 고급 사용법
+import asyncio
+from pathlib import Path
+from web_to_markdown import WebToMarkdownConverter, ConverterConfig
+
+async def advanced_example():
+    # JSON 파일에서 설정 로드
+    config = ConverterConfig.from_json("config.json")
+    
+    # 특정 설정 오버라이드
+    config.image_folder = Path("./my_images")
+    config.line_width = 120
+    
+    converter = WebToMarkdownConverter(config)
+    
+    # 여러 URL 일괄 변환
+    urls = [
+        "https://example1.com",
+        "https://example2.com",
+        "https://example3.com"
+    ]
+    
+    for url in urls:
+        try:
+            markdown = await converter.convert_url(url)
+            filename = url.replace("https://", "").replace("/", "_") + ".md"
+            await converter.save_to_file(markdown, f"output/{filename}")
+            print(f"Converted: {url}")
+        except Exception as e:
+            print(f"Failed to convert {url}: {e}")
+
+asyncio.run(advanced_example())
+
+# 4. 커스텀 핸들러 추가 예제
+from web_to_markdown import BaseElementHandler, ConversionContext, _handler_registry
+from bs4 import Tag
+
+class CustomDivHandler(BaseElementHandler):
+    """특정 div 클래스를 처리하는 커스텀 핸들러"""
+    
+    def can_handle(self, element: Tag) -> bool:
+        return (element.name == 'div' and 
+                'custom-class' in element.get('class', []))
+    
+    def handle(self, element: Tag, context: ConversionContext) -> str:
+        content = self.get_text_content(element, context)
+        return f"[Custom Content: {content}]\n\n"
+
+# 핸들러 등록
+_handler_registry.handlers.append(CustomDivHandler())
